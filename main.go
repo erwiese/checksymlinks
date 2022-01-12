@@ -74,6 +74,7 @@ Author: Erwin Wiesensarter`)
 	nofLinksInspected := 0
 
 	// Traverse directory recursive, does not follow links
+	// TODO use the new WalkDir function in Go1.16
 	err = filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", path, err)
