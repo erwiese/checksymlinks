@@ -12,13 +12,17 @@ import (
 	"time"
 )
 
+const version = "0.1.2"
+
+var beQuiet bool
+
 func main() {
 	startTime := time.Now()
 
 	fs := flag.NewFlagSet("checksymlinks", flag.ExitOnError)
-	delBrokenLinks := fs.Bool("delete-broken", false, "If true, all broken symbolic links will be removed. Use with care! Defaults to false.")
-	delAllLinks := fs.Bool("delete-all", false, "If true, all symbolic links will be removed. Use with care! Defaults to false.")
-
+	quiet := fs.Bool("quiet", false, "suppress non-error messages")
+	delBrokenLinks := fs.Bool("delete-broken", false, "If true, all broken symbolic links will be removed. Use with care! Defaults to false")
+	delAllLinks := fs.Bool("delete-all", false, "If true, all symbolic links will be removed. Use with care! Defaults to false")
 	fs.Usage = func() {
 		fmt.Println(`checksymlinks - traverse a directory recursive and search for broken links.
 	
@@ -34,12 +38,13 @@ Examples:
 	
     Delete broken links
     $ checksymlinks -delete-broken /home/user/xyz/dir1
-	
-Sources: https://github.com/erwiese/checksymlinks
-Author: Erwin Wiesensarter`)
+
+	`)
+		fmt.Printf("checksymlinks v%s %s\n", version, "https://github.com/erwiese/checksymlinks")
 	}
 
 	fs.Parse(os.Args[1:])
+	beQuiet = *quiet
 	argsNotParsed := fs.Args()
 	if len(argsNotParsed) > 1 {
 		fmt.Fprintf(os.Stderr, "unknown arguments: %s\n", strings.Join(argsNotParsed, " "))
@@ -51,7 +56,7 @@ Author: Erwin Wiesensarter`)
 		os.Exit(1)
 	}
 
-	if *delBrokenLinks == true && *delAllLinks == true {
+	if *delBrokenLinks && *delAllLinks {
 		fmt.Fprintf(os.Stderr, "Flags delBrokenLinks and delAllLinks are not allowed together\n")
 		fs.Usage()
 		os.Exit(1)
@@ -66,7 +71,7 @@ Author: Erwin Wiesensarter`)
 	if err != nil {
 		log.Fatalf("Could not change to root-dir %s: %v", rootDir, err)
 	}
-	log.Printf("root dir: %s", rootDir)
+	debug(fmt.Sprintf("root dir: %s", rootDir))
 
 	nofErrors := 0
 	nofBrokenLinks := 0
@@ -82,7 +87,7 @@ Author: Erwin Wiesensarter`)
 		}
 
 		if info.IsDir() {
-			log.Printf("visited dir: %q", path)
+			debug(fmt.Sprintf("visited dir: %q", path))
 			return nil
 		}
 
@@ -96,7 +101,7 @@ Author: Erwin Wiesensarter`)
 		if fi.Mode()&os.ModeSymlink != 0 {
 			nofLinksInspected++
 			// remove link anyway
-			if *delAllLinks == true {
+			if *delAllLinks {
 				log.Printf("Remove link %s", path)
 				err = os.Remove(path)
 				if err != nil {
@@ -112,7 +117,7 @@ Author: Erwin Wiesensarter`)
 			if err != nil {
 				log.Printf("broken link %s: %v", path, err)
 				nofBrokenLinks++
-				if *delBrokenLinks == true {
+				if *delBrokenLinks {
 					log.Printf("Remove broken link %s", path)
 					err = os.Remove(path)
 					if err != nil {
@@ -122,9 +127,8 @@ Author: Erwin Wiesensarter`)
 					nofLinksRemoved++
 				}
 			} else {
-				log.Printf("symlink %s OK", resolvedPath)
+				debug(fmt.Sprintf("symlink %s OK", resolvedPath))
 			}
-
 		}
 
 		return nil
@@ -152,5 +156,10 @@ Author: Erwin Wiesensarter`)
 
 	elapsed := time.Since(startTime)
 	log.Printf("Execution time: %s", elapsed.String())
+}
 
+func debug(text string) {
+	if !beQuiet {
+		log.Print(text)
+	}
 }
